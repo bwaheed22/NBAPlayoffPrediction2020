@@ -1,0 +1,9 @@
+---
+title: "Which teams would have made the 2020 NBA Playoffs?"
+subtitle: "Predicting NBA playoff teams for 2020 season using machine learning"
+output: pdf_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
