@@ -94,5 +94,3 @@ getdata <- function(startyear, endyear) {
 
 # ---- Pull data and write to csv: -----
 df <- getdata(2005,2019)
-
-write.csv(df, "/Users/mbp/Documents/Side Projects/Classification of Playoff Teams/NBAdata.csv")

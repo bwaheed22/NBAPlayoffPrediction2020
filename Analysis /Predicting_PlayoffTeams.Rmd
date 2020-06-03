@@ -1,9 +1,248 @@
 ---
-title: "Which teams would have made the 2020 NBA Playoffs?"
-subtitle: "Predicting NBA playoff teams for 2020 season using machine learning"
-output: pdf_document
+title: "Who Would Have Made the 2020 NBA Playoffs?"
+subtitle: "Predicting NBA Playoff Teams with Machine Learning"
+output: 
+  pdf_document: 
+    number_sections: yes
+urlcolor: blue
+editor_options: 
+  chunk_output_type: console
 ---
 
 ```{r setup, include=FALSE}
 knitr::opts_chunk$set(echo = TRUE)
 ```
+
+```{r message=FALSE, warning=FALSE, include=FALSE}
+# Load libraries and functions:
+library(tidyverse)
+library(caret)
+library(rsample)
+library(ROCR)
+library(randomForest)
+library(here)
+```
+
+```{r message=FALSE, warning=FALSE, include=FALSE}
+set.seed(1001)
+source("/Users/mbp/Documents/Side Projects/NBAPlayoffPrediction2020/Scripts/scrape_script.R")
+nbadata <- read.csv("/Users/mbp/Documents/Side Projects/NBAPlayoffPrediction2020/Data/NBAdata.csv")
+```
+
+# Overview
+
+In this analysis, I wanted to predict which NBA teams were going to make the playoffs in the 2019-2020 NBA season that was abruptly cut short due to the COVID-19 pandemic. Fans across the country were bummed (including me) and looking forward to a competitive, high-octane playoff season. The two top-seeded teams, the Los Angeles Lakers backed by LeBron James, and the Milwaukee Bucks lead by Giannis Antetokounmpo, were slated to duel for the championship title. 
+
+At the time of cancellation (March 11, 2020), a few teams clinched their playoff berths, others were jostling for their seeding positions, and some were fighting for the coveted 8th seed. I wanted to know which teams were going to make the playoffs, had the season continued. 
+
+I used several supervised machine learning models that predicted playoff teams by using aggregate team statistics over the course of the regular season. I trained the models on data from 15 NBA seasons (2004-2005 through 2018-2019) and predicted outcomes for the 2019-2020 season.
+
+## Results
+The final model predicted 17 teams to be in the 2020 NBA Playoffs. The model incorrectly predicted one extra team, and out of all the teams predicted to be in the playoffs, 15 of them were in the top 8 seeds in their respective conferences at the time of cancellation.
+
+# Data Collection
+
+The data were scraped and cleaned from the [ESPN website](https://www.espn.com/nba/stats/team) and consist of information for 30 teams over 15 seasons. The data contain several metrics for each team, and an indicator for whether or not that team made the playoffs in that season. The goal here is to find if any of these aggregate statistics are indicative of a team’s chances of being a playoff team. Below are a sample of some of the metrics included in the data:
+
+* `"PTS" – Total points scored.`
+* `"FGA" – Total field goal attempts (shots).`
+* `"X3P" – Total three-point attempts.`
+* `"FTM" – Total free-throws made.`
+* `"REB" – Total rebounds collected.`
+* `"AST" – Total assists.`
+* `"STL" – Total steals.`
+* `"TO" – Total turnovers (loss of posession of the ball).`
+* `"PF" – Total personal fouls committed.`
+* `"playoffs" – Indicator for playoffs (1 = in playoffs).`
+
+The script for scraping, cleaning, and formatting the data from the ESPN website can be found in the “scripts” folder.
+
+\pagebreak
+
+Below is a sample of the cleaned dataset:
+
+```{r echo=FALSE, message=FALSE, warning=FALSE}
+kableExtra::kable(nbadata[1:5,c(2:5, 17:22)], format = "markdown")
+```
+# Data Exploration
+
+## Correlation Plot
+
+First let’s explore any variables significantly related to the outcome variable. The correlation plot below shows that most of variables are strongly correlated with each other, but have weaker correlations to the target variable, `playoffs`.
+
+```{r echo=FALSE, warning=FALSE, fig.align = "center"}
+corrplot::corrplot(cor(nbadata[,c(3:20,22)]))
+```
+
+# Modeling the Data
+
+Since the goal of this analysis is to classify a team as a playoff team or not, I decided to use several classification models that specialize in predicting categorical (binary) outcomes. The data was split into a training and test set (70%/30% split) and the models were fit on the training data using repeated 10-fold cross-validation.
+
+The models and their respective performances on the training data are shown below:
+
+```{r message=FALSE, warning=FALSE, include=FALSE}
+# set train and test sets:
+inTrain <- createDataPartition(y = nbadata$playoffs, p = 0.70, list = FALSE)
+nbadata_train <- nbadata[inTrain,]
+nbadata_test <- nbadata[-inTrain,]
+
+# Re-code outcome variable as a factor:
+nbadata_train$playoffs <- factor(nbadata_train$playoffs, labels = c("0","1"))
+nbadata_test$playoffs <- factor(nbadata_test$playoffs, labels = c("0","1"))
+
+# construct logistic regression model:
+logit1 <- train(playoffs ~ PTS + FGM + FG + X3PA + FTM + FTA + FT + OR + DR + AST + STL + TO, 
+                data = nbadata_train, 
+                method = "glm", family = "binomial", 
+                trControl = trainControl(method = "repeatedcv", number = 10, repeats = 10))
+
+# construct random forest model:
+rf_model <- train(playoffs ~ PTS + FGM + FG + X3PA + FTM + FTA + FT + OR + DR + AST + STL + TO,
+                  data = nbadata_train, method = 'rf', 
+                  trControl = trainControl(method = "repeatedcv", number = 10, repeats = 10),
+                  importance = TRUE, ntree = 300)
+
+# construct naive bayes model:
+nb_model <- train(playoffs ~ PTS + FGM + FG + X3PA + FTM + FTA + FT + OR + DR + AST + STL + TO,
+                           trControl = trainControl(method = "repeatedcv", number = 10, repeats = 10),
+                           method = "nb",
+                           data = nbadata_train)
+# construct svm model:
+svm_model <- train(playoffs ~ PTS + FGM + FG + X3PA + FTM + FTA + FT + OR + DR + AST + STL + TO,
+                  trControl = trainControl(method = "repeatedcv", number = 10, repeats = 10),
+                  method = "svmLinear",
+                  data = nbadata_train)
+
+# accuracies of each model:
+accuracy_df <- data.frame(Model = c("Logistic Regression", "Random Forest", 
+"Naive Bayes", "SVM Linear"), Accuracy = c(logit1$results[[2]], rf_model$results[[2]][1],
+                                           nb_model$results[[4]][1], svm_model$results[[2]][1]))
+```
+
+```{r echo=FALSE, message=FALSE, warning=FALSE}
+kableExtra::kable(accuracy_df, format = "markdown")
+```
+
+## Brief aside for the Logistic Regression Model
+
+In the Logistic Regression model, we model the Bernoulli data-generating process of the outcome variable `“playoffs”` $P(Playoffs = 1) = p$ by assuming a linear relationship between predictor variables and the log-odds of the event that $P(Playoffs = 1)$. 
+
+This model takes the form:
+$$log(\frac{p}{1-p}) = \beta_0 + \sum_{i=1}^n \beta_iX_i$$
+$$\mbox{where } p = \mbox{probability of being in playoffs and } X_i = \mbox{predictor } i$$
+Below, the output of the model shows that all predictors are statistically significant (p < 0.05). It is interesting to note that the predictors `“TLS` and `TO` have coefficients of `2.148` and `-1.597`, respectively. 
+
+* On average, a higher amount of turnovers translate to a smaller log-odds (and subsequently probability) of being in the playoffs, holding all other variables constant.
+
+* If a team has a high amount of steals, the probability is much greater.
+
+This seems to confirm the idea posited by most basketball gurus that defense is the best offense, and that sticking to fundamentals of the game most often wins championships.
+
+```{r echo=FALSE, message=FALSE, warning=FALSE}
+kableExtra::kable(round(data.frame("Coefficient" = coef(summary(logit1))[,1], "P-value" = coef(summary(logit1))[,4]),3), format = "markdown")
+```
+
+\pagebreak
+# Model Evaluation
+
+## Confusion Matricies
+
+Now that the models are trained on the training data, we can evaluate their performance on the test sets and see how well each can distinguish between a playoff team and a non-playoff team.
+
+Based on the confusion matrix plots below, the SVM model appears to be the best at predicting out-of-sample data, since it has the lowest False Positive Rate (FPR) and False Negative Rates (FNR).
+
+* **For this analysis, I wanted to choose a model that is able to detect a playoff team well, but also limits the amount of playoff teams that it misses (i.e a balance between false positives and false negatives).**
+
+```{r message=FALSE, warning=FALSE, include=FALSE}
+preds_logit<- predict(logit1, newdata = nbadata_test, type = 'raw')
+preds_rf <- predict(rf_model, newdata= nbadata_test)
+preds_nb <- predict(nb_model, newdata = nbadata_test)
+preds_svm <- predict(svm_model, newdata = nbadata_test)
+```
+
+```{r echo=FALSE, fig.align="center", message=FALSE, warning=FALSE}
+par(mfrow = c(2,2))
+fourfoldplot(confusionMatrix(factor(nbadata_test$playoffs), 
+                             factor(preds_logit), 
+                             dnn = c("True", "Predicted"))$table, main = "Logistic Model")
+fourfoldplot(confusionMatrix(factor(nbadata_test$playoffs), 
+                              factor(preds_rf), 
+                              dnn = c("True", "Predicted"))$table, main = "Random Forest Model")
+fourfoldplot(confusionMatrix(factor(nbadata_test$playoffs), 
+                             factor(preds_nb), 
+                             dnn = c("True", "Predicted"))$table, main = "Naive Bayes Model")
+fourfoldplot(confusionMatrix(factor(nbadata_test$playoffs), 
+                             factor(preds_svm), 
+                             dnn = c("True", "Predicted"))$table, main = "SVM Linear Model")
+
+```
+
+\pagebreak
+
+## ROC and AUC
+
+To confirm the selection of the SVM model, we can also look at the ROC curve and calculate the AUC (area under the curve).
+
+```{r echo=FALSE, message=FALSE, warning=FALSE}
+roc_svm <- performance(prediction(as.numeric(preds_svm), as.numeric(nbadata_test$playoffs)), "tpr", "fpr")
+auc_svm <- performance(prediction(as.numeric(preds_svm), as.numeric(nbadata_test$playoffs)), "auc")@y.values
+
+plot(roc_svm, main = "ROC - SVM Linear Model", sub = "Area Under Curve (AUC) = 0.827")
+abline(a = 0, b = 1, col = "red")
+```
+
+The AUC's for the other models are shown below:
+
+```{r echo=FALSE, message=FALSE, warning=FALSE}
+auc_logit <- performance(prediction(as.numeric(preds_logit), as.numeric(nbadata_test$playoffs)), "auc")@y.values
+auc_rf <- performance(prediction(as.numeric(preds_rf), as.numeric(nbadata_test$playoffs)), "auc")@y.values
+auc_nb<- performance(prediction(as.numeric(preds_nb), as.numeric(nbadata_test$playoffs)), "auc")@y.values
+
+kableExtra::kable(cbind(c("SVM Linear Model", "Logistic Model", "Random Forest Model", "Naive Bayes Model"), round(rbind(unlist(auc_svm),unlist(auc_logit), unlist(auc_rf), unlist(auc_nb)),2)), format = "markdown", 
+                  col.names = c("Model", "AUC Metric"))
+```
+
+\pagebreak
+# Predicting 2020 NBA Playoff Teams 
+
+From these metrics, it is clear that SVM performed best at classifying playoff teams. Let’s see how it performs on the 2020 NBA season. 
+
+The predictions are shown below along with the teams that were among the top 16 in the league at the time the season was cancelled:
+
+```{r echo=FALSE, message=FALSE, warning=FALSE}
+nba2020 <- getdata(2020,2020)
+nba2020$preds_svm <- predict(svm_model, newdata = nba2020)
+kableExtra::kable(data.frame(c(1:17), nba2020 %>% filter(preds_svm==1) %>% select(teams), 
+                             c("Milwaukee Bucks","Houston Rockets","Dallas Mavericks","LA Clippers",
+                               "Los Angeles Lakers", "Brooklyn Nets","Boston Celtics","Toronto Raptors",
+                               "Memphis Grizzlies","Miami Heat", "Utah Jazz", "Oklahoma City Thunder",
+                               "Denver Nuggets", "Philadelphia 76ers", "Indiana Pacers", "Orlando Magic","-")),
+                        format = "markdown", col.names = c("", "Predicted Playoff Teams", "Actual Top 16 Teams"), 
+                  caption = "Predicted Playoff Teams using SVM Model")
+
+```
+
+This model performed pretty well, as it predicted that most of the teams that were in the top 16 would eventually make it to the playoffs. This makes sense, because usually around March, teams begin to solidify their playoff berths and the top 16 teams are the ones that will be in the playoffs. 
+
+* The model incorrectly predicted two teams as playoff teams (San Antonio Spurs and Phoenix Suns): they were not in the top 16. 
+* The model also failed to classify the Brooklyn Nets as a playoff team, even though it was in the top 16 at the time of cancellation. 
+
+The other model predictions are shown below for reference: 
+
+```{r message=FALSE, warning=FALSE, include=FALSE}
+nba2020$pred_logit<- predict(logit1, newdata = nba2020, type = 'raw')
+nba2020$preds_rf <- predict(rf_model, newdata= nba2020)
+nba2020$preds_nb <- predict(nb_model, newdata = nba2020)
+
+summary2020 <- gdata::cbindX(matrix(c(1:29),ncol=1),nba2020 %>% filter(pred_logit==1) %>% select(teams),
+nba2020 %>% filter(preds_rf==1) %>% select(teams),
+nba2020 %>% filter(preds_nb==1) %>% select(teams))
+
+names(summary2020) = c("", "Logistic Model", "Random Forest Model", "Naive Bayes Model")
+```
+
+```{r echo=FALSE, message=FALSE, warning=FALSE}
+kableExtra::kable(summary2020, format = "markdown")
+```
+
+# Conclusion
