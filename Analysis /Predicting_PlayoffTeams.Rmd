@@ -47,7 +47,7 @@ The final model predicted 17 teams to be in the 2020 NBA Playoffs (10 teams from
 
 # Data Collection
 
-The data were scraped^[The data set and script for scraping and cleaning data can be found in the "Data" and "Scripts" folder, respectively on the [GitHub repository](https://github.com/bwaheed22/NBAPlayoffPrediction2020) and cleaned from the [ESPN website](https://www.espn.com/nba/stats/team) and consist of information for 30 teams over 15 seasons. The data contain traditional basketball statistics (aggregated on a per-game basis), and an indicator for whether or not that team made the playoffs in that season. The goal here is to find if any of these variables are indicative of a team’s chances of being a playoff team. 
+The data were scraped^[The dataset and script for scraping and cleaning can be found in the "Data" and "Scripts" folder, respectively, on the [GitHub repository](https://github.com/bwaheed22/NBAPlayoffPrediction2020)] and cleaned from the [ESPN website](https://www.espn.com/nba/stats/team) and consist of information for 30 teams over 15 seasons. The data contain traditional basketball statistics (aggregated on a per-game basis), and an indicator for whether or not that team made the playoffs in that season. The goal here is to find if any of these variables are indicative of a team’s chances of being a playoff team. 
 
 Below are a sample of some of the metrics in the data and the first few records of the dataset:
 
