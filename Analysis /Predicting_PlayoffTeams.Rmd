@@ -31,18 +31,25 @@ nbadata <- read.csv("/Users/mbp/Documents/Side Projects/NBAPlayoffPrediction2020
 
 # Overview
 
-In this analysis, I wanted to predict which NBA teams were going to make the playoffs in the 2019-2020 NBA season that was abruptly cut short due to the COVID-19 pandemic. Fans across the country were bummed (including me) and looking forward to a competitive, high-octane playoff season. The two top-seeded teams, the Los Angeles Lakers backed by LeBron James, and the Milwaukee Bucks lead by Giannis Antetokounmpo, were slated to duel for the championship title. 
+In this analysis, I wanted to predict which NBA teams were going to make the playoffs in the 2019-2020 NBA season that was abruptly cut short due to the COVID-19 pandemic. Fans across the country were bummed and looking forward to a competitive, high-octane playoff season. The two top-seeded teams, the Los Angeles Lakers backed by LeBron James, and the Milwaukee Bucks lead by Giannis Antetokounmpo, were slated to duel for the championship title. 
 
-At the time of cancellation (March 11, 2020), a few teams clinched their playoff berths, others were jostling for their seeding positions, and some were fighting for the coveted 8th seed. I wanted to know which teams were going to make the playoffs, had the season continued. 
+At the time of cancellation (March 11, 2020), a few teams clinched their playoff berths, others were jostling for their seeding positions, and some were fighting for the coveted 8th seed. Usually, playoffs begin in the middle of April, and the top 8 teams of each conference (Eastern and Western) are eligible. I wanted to know which teams were going to make the playoffs, had the season continued. 
 
-I used several supervised machine learning models that predicted playoff teams by using aggregate team statistics over the course of the regular season. I trained the models on data from 15 NBA seasons (2004-2005 through 2018-2019) and predicted outcomes for the 2019-2020 season.
+I used several classification machine learning models that predicted playoff teams based on aggregate team statistics over the course of the regular season. I trained the models on data from 15 NBA seasons (2004-2005 through 2018-2019) and predicted outcomes for the 2019-2020 season.
 
 ## Results
-The final model predicted 17 teams to be in the 2020 NBA Playoffs. The model incorrectly predicted one extra team, and out of all the teams predicted to be in the playoffs, 15 of them were in the top 8 seeds in their respective conferences at the time of cancellation.
+
+The final model predicted 17 teams to be in the 2020 NBA Playoffs (10 teams from the West, 7 in the East). 
+
+* The model predicted two extra teams to qualify out of the West, who were not in the top 8 at the time.
+* The model failed to predict one team to qualify out of the East, which was in the top 8 at the time. 
+* Out of all the predicted playoff teams, 15 of them were in the top 8 seeds in their respective conferences at the time of cancellation.
 
 # Data Collection
 
-The data were scraped and cleaned from the [ESPN website](https://www.espn.com/nba/stats/team) and consist of information for 30 teams over 15 seasons. The data contain several metrics for each team, and an indicator for whether or not that team made the playoffs in that season. The goal here is to find if any of these aggregate statistics are indicative of a team’s chances of being a playoff team. Below are a sample of some of the metrics included in the data:
+The data were scraped^[The data set and script for scraping and cleaning data can be found in the "Data" and "Scripts" folder, respectively on the [GitHub repository](https://github.com/bwaheed22/NBAPlayoffPrediction2020) and cleaned from the [ESPN website](https://www.espn.com/nba/stats/team) and consist of information for 30 teams over 15 seasons. The data contain traditional basketball statistics (aggregated on a per-game basis), and an indicator for whether or not that team made the playoffs in that season. The goal here is to find if any of these variables are indicative of a team’s chances of being a playoff team. 
+
+Below are a sample of some of the metrics in the data and the first few records of the dataset:
 
 * `"PTS" – Total points scored.`
 * `"FGA" – Total field goal attempts (shots).`
@@ -55,11 +62,7 @@ The data were scraped and cleaned from the [ESPN website](https://www.espn.com/n
 * `"PF" – Total personal fouls committed.`
 * `"playoffs" – Indicator for playoffs (1 = in playoffs).`
 
-The script for scraping, cleaning, and formatting the data from the ESPN website can be found in the “scripts” folder.
-
 \pagebreak
-
-Below is a sample of the cleaned dataset:
 
 ```{r echo=FALSE, message=FALSE, warning=FALSE}
 kableExtra::kable(nbadata[1:5,c(2:5, 17:22)], format = "markdown")
@@ -68,15 +71,22 @@ kableExtra::kable(nbadata[1:5,c(2:5, 17:22)], format = "markdown")
 
 ## Correlation Plot
 
-First let’s explore any variables significantly related to the outcome variable. The correlation plot below shows that most of variables are strongly correlated with each other, but have weaker correlations to the target variable, `playoffs`.
+First let’s explore any variables significantly related to the outcome variable. The correlation plot below shows that most of variables are strongly correlated with each other, and have moderate correlations to the target variable, `playoffs`.
 
 ```{r echo=FALSE, warning=FALSE, fig.align = "center"}
 corrplot::corrplot(cor(nbadata[,c(3:20,22)]))
 ```
+\pagebreak
 
 # Modeling the Data
 
-Since the goal of this analysis is to classify a team as a playoff team or not, I decided to use several classification models that specialize in predicting categorical (binary) outcomes. The data was split into a training and test set (70%/30% split) and the models were fit on the training data using repeated 10-fold cross-validation.
+Since the goal of this analysis is to classify a team as a playoff team or not, I decided to use classification models that specialize in predicting categorical (binary) outcomes. The data was split into a training and test set (70%/30% split) and the models were fit on the training data using repeated 10-fold cross-validation.
+
+## Variables Included in the Model
+
+The following variables were selected to be included in the models based on stepwise-AIC logistic regression:
+
+`PTS, FGM , X3PA, FTM ,FTA, FT, OR, DR, AST, STL, TO`
 
 The models and their respective performances on the training data are shown below:
 
@@ -123,18 +133,18 @@ accuracy_df <- data.frame(Model = c("Logistic Regression", "Random Forest",
 kableExtra::kable(accuracy_df, format = "markdown")
 ```
 
-## Brief aside for the Logistic Regression Model
+## Brief aside on the Logistic Regression Model
 
-In the Logistic Regression model, we model the Bernoulli data-generating process of the outcome variable `“playoffs”` $P(Playoffs = 1) = p$ by assuming a linear relationship between predictor variables and the log-odds of the event that $P(Playoffs = 1)$. 
+In the Logistic Regression, we model the Bernoulli data-generating process of the outcome variable `“playoffs”` $P(Playoffs = 1) = p$ by assuming a linear relationship between predictor variables and the log-odds of the event that $P(Playoffs = 1)$. 
 
 This model takes the form:
 $$log(\frac{p}{1-p}) = \beta_0 + \sum_{i=1}^n \beta_iX_i$$
 $$\mbox{where } p = \mbox{probability of being in playoffs and } X_i = \mbox{predictor } i$$
-Below, the output of the model shows that all predictors are statistically significant (p < 0.05). It is interesting to note that the predictors `“TLS` and `TO` have coefficients of `2.148` and `-1.597`, respectively. 
+Below, the output of the model shows that all predictors are statistically significant (p < 0.05). It is interesting to note that the predictors `STLS` and `TO` have coefficients of `2.148` and `-1.597`, respectively. This means:
 
 * On average, a higher amount of turnovers translate to a smaller log-odds (and subsequently probability) of being in the playoffs, holding all other variables constant.
 
-* If a team has a high amount of steals, the probability is much greater.
+* Similarly, if a team has a high amount of steals, the probability is much greater.
 
 This seems to confirm the idea posited by most basketball gurus that defense is the best offense, and that sticking to fundamentals of the game most often wins championships.
 
@@ -149,9 +159,9 @@ kableExtra::kable(round(data.frame("Coefficient" = coef(summary(logit1))[,1], "P
 
 Now that the models are trained on the training data, we can evaluate their performance on the test sets and see how well each can distinguish between a playoff team and a non-playoff team.
 
-Based on the confusion matrix plots below, the SVM model appears to be the best at predicting out-of-sample data, since it has the lowest False Positive Rate (FPR) and False Negative Rates (FNR).
+> **For this analysis, I wanted to choose a model that is able to detect a playoff team well, but also limits the amount of playoff teams that it misses (i.e a balance between false positives and false negatives).**
 
-* **For this analysis, I wanted to choose a model that is able to detect a playoff team well, but also limits the amount of playoff teams that it misses (i.e a balance between false positives and false negatives).**
+Based on the confusion matrix plots below, the SVM model appears to be the best at predicting out-of-sample data, since it has the lowest False Positive Rate (FPR) and False Negative Rates (FNR) (rows represent true values, and columns represent the predicted values).
 
 ```{r message=FALSE, warning=FALSE, include=FALSE}
 preds_logit<- predict(logit1, newdata = nbadata_test, type = 'raw')
@@ -181,7 +191,7 @@ fourfoldplot(confusionMatrix(factor(nbadata_test$playoffs),
 
 ## ROC and AUC
 
-To confirm the selection of the SVM model, we can also look at the ROC curve and calculate the AUC (area under the curve).
+To confirm the selection of the SVM model, we can also look at the ROC curve and the associated AUC metric (area under the curve).
 
 ```{r echo=FALSE, message=FALSE, warning=FALSE}
 roc_svm <- performance(prediction(as.numeric(preds_svm), as.numeric(nbadata_test$playoffs)), "tpr", "fpr")
@@ -205,31 +215,71 @@ kableExtra::kable(cbind(c("SVM Linear Model", "Logistic Model", "Random Forest M
 \pagebreak
 # Predicting 2020 NBA Playoff Teams 
 
-From these metrics, it is clear that SVM performed best at classifying playoff teams. Let’s see how it performs on the 2020 NBA season. 
+According to the metrics, the SVM model performed best at classifying playoff teams. Let’s see how it performs on predicting the 2020 NBA season.
 
 The predictions are shown below along with the teams that were among the top 16 in the league at the time the season was cancelled:
 
 ```{r echo=FALSE, message=FALSE, warning=FALSE}
 nba2020 <- getdata(2020,2020)
 nba2020$preds_svm <- predict(svm_model, newdata = nba2020)
-kableExtra::kable(data.frame(c(1:17), nba2020 %>% filter(preds_svm==1) %>% select(teams), 
-                             c("Milwaukee Bucks","Houston Rockets","Dallas Mavericks","LA Clippers",
+actual_teams <-data.frame(teams = c("Milwaukee Bucks","Houston Rockets","Dallas Mavericks","LA Clippers",
                                "Los Angeles Lakers", "Brooklyn Nets","Boston Celtics","Toronto Raptors",
                                "Memphis Grizzlies","Miami Heat", "Utah Jazz", "Oklahoma City Thunder",
-                               "Denver Nuggets", "Philadelphia 76ers", "Indiana Pacers", "Orlando Magic","-")),
-                        format = "markdown", col.names = c("", "Predicted Playoff Teams", "Actual Top 16 Teams"), 
-                  caption = "Predicted Playoff Teams using SVM Model")
-
+                               "Denver Nuggets", "Philadelphia 76ers", "Indiana Pacers", "Orlando Magic", "-"))
+kableExtra::kable(data.frame(c(1:17), nba2020 %>% filter(preds_svm==1) %>% select(teams), actual_teams),
+                        format = "markdown", col.names = c("", "Predicted Playoff Teams", "Actual Top 16 Teams"))
 ```
 
-This model performed pretty well, as it predicted that most of the teams that were in the top 16 would eventually make it to the playoffs. This makes sense, because usually around March, teams begin to solidify their playoff berths and the top 16 teams are the ones that will be in the playoffs. 
+This model performed pretty well, as it predicted that most of the teams that were in the top 16 in the league would eventually make it to the playoffs. This seems reasonable because usually around March, teams begin to solidify their playoff berths, and the teams who are top 8 in their respective conferences at that time are the ones that will be in the playoffs. There are obvious exceptions, for instance, a team could go on a significant winning or losing streak, or, there is fierce competition and only a few games separate the last few seeds of the conference.
 
-* The model incorrectly predicted two teams as playoff teams (San Antonio Spurs and Phoenix Suns): they were not in the top 16. 
-* The model also failed to classify the Brooklyn Nets as a playoff team, even though it was in the top 16 at the time of cancellation. 
+* The model predicted two teams in the West as playoff teams (San Antonio Spurs and Phoenix Suns) that were not in the top 8 of the West at the time.
 
-The other model predictions are shown below for reference: 
+* The model also failed to classify the Brooklyn Nets as a playoff team in the East, even though it was in the top 8 at the time.
 
-```{r message=FALSE, warning=FALSE, include=FALSE}
+\pagebreak
+
+Let's examine the average statistics of these predicted playoff teams and compare them to the non-playoff teams:
+
+```{r echo=FALSE, message=FALSE, warning=FALSE}
+preds_avg_po <- nba2020 %>% filter(preds_svm == 1) %>% 
+  select(PTS, FGM , X3PA, FTM ,FTA, FT, OR, DR, AST, STL, TO) %>% summarise(Average = colMeans(.))
+
+preds_avg_npo <- nba2020 %>% filter (preds_svm == 0) %>% 
+  select(PTS, FGM , X3PA, FTM ,FTA, FT, OR, DR, AST, STL, TO) %>% summarise(Average = colMeans(.))
+
+varnames <- names(nba2020 %>% select(PTS, FGM , X3PA, FTM ,FTA, FT, OR, DR, AST, STL, TO))
+
+kableExtra::kable(cbind(varnames, preds_avg_po, preds_avg_npo, preds_avg_po - preds_avg_npo), format = "markdown", col.names = c("Variable", "Playoff Teams", "Non-Playoff Teams", "Difference (Playoff v. Non-Playoff)"), digits = 3)
+```
+
+On average, it seems that there are clear differences between playoff and non-playoff teams, namely in PTS, FGM, ASTS, DR. 
+
+We can conduct a difference in means T-test for each variable to see if these differences are statistically significant, and verify which aspects of the game that playoff teams generally perform better at.
+
+```{r echo=FALSE}
+po_stats <- nba2020 %>% filter(preds_svm == 1) %>% 
+  select(PTS, FGM , X3PA, FTM ,FTA, FT, OR, DR, AST, STL, TO)
+
+npo_stats <- nba2020 %>% filter(preds_svm == 0) %>% 
+  select(PTS, FGM , X3PA, FTM ,FTA, FT, OR, DR, AST, STL, TO)
+
+t_pvalue <- c()
+for (i in 1:ncol(po_stats)) {
+  t_pvalue[i] <- t.test(po_stats[,i], npo_stats[,i], var.equal = T)$p.value
+}
+
+kableExtra::kable(cbind(varnames, round(t_pvalue,3)),
+                  format = "markdown", 
+                  col.names = c("Variable", "T-Test P-Value"))
+```
+
+The results show that on average, playoff teams have statistically significant differences in the following metrics (at a significance level 0.05):
+
+`PTS, FGM, FT, OR, DR, TO`
+
+This means that generally, teams who score more points, make more field goals, and handle the ball well are the teams ending up in the playoffs.
+
+```{r eval=FALSE, message=FALSE, warning=FALSE, include=FALSE}
 nba2020$pred_logit<- predict(logit1, newdata = nba2020, type = 'raw')
 nba2020$preds_rf <- predict(rf_model, newdata= nba2020)
 nba2020$preds_nb <- predict(nb_model, newdata = nba2020)
@@ -241,8 +291,12 @@ nba2020 %>% filter(preds_nb==1) %>% select(teams))
 names(summary2020) = c("", "Logistic Model", "Random Forest Model", "Naive Bayes Model")
 ```
 
-```{r echo=FALSE, message=FALSE, warning=FALSE}
+```{r eval=FALSE, message=FALSE, warning=FALSE, include=FALSE}
 kableExtra::kable(summary2020, format = "markdown")
 ```
 
-# Conclusion
+# Key Takeaways
+
+This analysis showed that traditional basketball statistics are useful in predicting NBA playoff eligibility. It provided insight into specific factors of a team that can lead to better performance.
+
+The results suggest that if teams understand their metrics early in the season, they can focus on improving in specific areas of their play style (for example, limiting turnovers, or ensuring excellent shot selection and rebounding) to better their chances of qualifying for the playoffs. This also allows coaches and basketball management to make better informed decisions in terms of trades, and coaching styles. 
